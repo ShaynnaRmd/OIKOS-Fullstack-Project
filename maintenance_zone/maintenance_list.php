@@ -25,9 +25,10 @@ if ($role_result && $role_result['maintenance_role'] == 1) {
     $maintenanceRole = $role_result['maintenance_role'];
     // Si le rôle maintenance_role est ok -> proceed le reste du code : */
     $maintenance_requete = $website_pdo->prepare('
-    SELECT DISTINCT m.id, m.status, m.title, m.schedule_date, m.housing_id, hi.image
+    SELECT DISTINCT m.id, m.status, m.title, m.schedule_date, m.housing_id, hi.image, h.title AS housing_title
     FROM maintenance m
-    JOIN housing_image hi ON m.housing_id = hi.housing_id    
+    JOIN housing_image hi ON m.housing_id = hi.housing_id  
+    JOIN housing h ON m.housing_id = h.id
 ');
 $maintenance_requete->execute();
 $maintenance_result = $maintenance_requete->fetchAll(PDO::FETCH_ASSOC);
@@ -76,20 +77,20 @@ $title = "Tâches à venir: ";
     <table>
         <tr>
             <th>ID</th>
+            <th>Date prévue</th>
+            <th>logement</th>
+            <th>Image</th>
             <th>Statut</th>
             <th>Titre</th>
-            <th>Date prévue</th>
-            <th>ID Logement</th>
-            <th>Image</th>
         </tr>
         <?php foreach ($maintenance_result as $maintenance) { ?>
             <tr>
                 <td><?php echo $maintenance['id']; ?></td>
+                <td><?php echo $maintenance['schedule_date']; ?></td>
+                <td><?php echo $maintenance['housing_title']; ?></td>
+                <td><img src="<?php echo $maintenance['image']; ?>" alt="Image du logement"></td>
                 <td><?php echo $maintenance['status']; ?></td>
                 <td><?php echo $maintenance['title']; ?></td>
-                <td><?php echo $maintenance['schedule_date']; ?></td>
-                <td><?php echo $maintenance['housing_id']; ?></td>
-                <td><img src="<?php echo $maintenance['image']; ?>" alt="Image du logement"></td>
             </tr>
         <?php } ?>
     </table>
