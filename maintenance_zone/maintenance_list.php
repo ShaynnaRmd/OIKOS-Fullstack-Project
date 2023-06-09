@@ -90,7 +90,7 @@ $title = "Tâches à venir: ";
                 <td><?php echo $maintenance['housing_title']; ?></td>
                 <td><img src="<?php echo $maintenance['image']; ?>" alt="Image du logement"></td>
                 <td><?php echo $maintenance['status']; ?></td>
-                <td><?php echo $maintenance['title']; ?></td>
+                <div class="link"><td><a href="../maintenance_zone/maintenance_details.php"><?php echo $maintenance['title']; ?><a/></td>
             </tr>
         <?php } ?>
     </table>
