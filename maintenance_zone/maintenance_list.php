@@ -11,7 +11,7 @@ if (!isset($_SESSION['id'])) {
 
 // Vérifier les autorisations d'accès (rôle d'entretien)
 $role_requete = $website_pdo->prepare('
-SELECT id, maintenance_role, management_role, admin_role  
+SELECT id, maintenance_role
 FROM user
 WHERE id = :id;
 ');
