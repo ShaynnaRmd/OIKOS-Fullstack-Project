@@ -11,9 +11,9 @@ if (!isset($_SESSION['id'])) {
 
 // Vérifier les autorisations d'accès (rôle d'entretien)
 $role_requete = $website_pdo->prepare('
-    SELECT id, maintenance_role, management_role, admin_role  
-    FROM user
-    WHERE id = :id;
+SELECT id, maintenance_role
+FROM user
+WHERE id = :id;
 ');
 
 $role_requete->execute([
@@ -22,166 +22,119 @@ $role_requete->execute([
 $role_result = $role_requete->fetch(PDO::FETCH_ASSOC);
 
 if ($role_result && $role_result['maintenance_role'] == 1) {
-    // Si le rôle maintenance_role est ok, procédez au reste du code :*/
+    $maintenanceRole = $role_result['maintenance_role'];
+    // Si le rôle maintenance_role est ok -> proceed le reste du code :*/
 
-    // Récupérer les informations des réservations et de la maintenance
-    $booking_requete = $website_pdo->prepare('
-        SELECT b.id, b.start_date_time, b.housing_id, h.title AS housing_title, hi.image
-        FROM booking b
-        JOIN housing h ON b.housing_id = h.id
-        JOIN housing_image hi ON h.id = hi.housing_id
-    ');
-    $booking_requete->execute();
-    $booking_result = $booking_requete->fetchAll(PDO::FETCH_ASSOC);
-
-    // Récupérer les informations de la maintenance
-    $maintenance_requete = $website_pdo->prepare('
-        SELECT m.id, m.title, m.housing_id, m.status, GROUP_CONCAT(mn.content SEPARATOR "<br>") AS notes
-        FROM maintenance m
-        LEFT JOIN maintenance_note mn ON m.id = mn.maintenance_id
-        WHERE DATE_FORMAT(m.schedule_date, "%Y-%m") = :currentMonth
-        GROUP BY m.id
-    ');
     $currentMonth = date('Y-m');
+
+    $maintenance_requete = $website_pdo->prepare('
+        SELECT DISTINCT m.id, m.status, m.title, m.schedule_date, m.housing_id, hi.image, h.title AS housing_title
+        FROM maintenance m
+        JOIN housing_image hi ON m.housing_id = hi.housing_id  
+        JOIN housing h ON m.housing_id = h.id
+        WHERE DATE_FORMAT(m.schedule_date, "%Y-%m") = :currentMonth
+    ');
     $maintenance_requete->bindParam(':currentMonth', $currentMonth, PDO::PARAM_STR);
     $maintenance_requete->execute();
     $maintenance_result = $maintenance_requete->fetchAll(PDO::FETCH_ASSOC);
-    
 
-    $title = "Checklist";
+    $housing_id = array();
+    for ($i = 0; $i < count($maintenance_result); $i++) {
+        array_push($housing_id, $maintenance_result[$i]['housing_id']);
+    }
+
+    $title = "Tâches à venir pour le mois en cours: ";
+/*} else {
+    echo "Vous n'avez pas les droits pour continuer.";
+    exit;
+}*/
+
+// Traitement du formulaire après soumission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $maintenanceNote = $_POST['maintenance_note'];
+    $status = 'à faire';
+
+    // Vérifier si toutes les cases sont cochées
+    $isChecked = true;
+    foreach ($_POST['maintenance_check'] as $check) {
+        if (empty($check)) {
+            $isChecked = false;
+            break;
+        }
+    }
+
+    // Mettre à jour le statut en fonction de la validation
+    if ($isChecked) {
+        $status = 'fait';
+        // Supprimer la maintenance si le mois actuel se termine
+        $currentMonthEnd = date('Y-m-t');
+        if ($currentMonthEnd === $currentMonth) {
+            // Supprimer la maintenance
+            $deleteMaintenanceQuery = $website_pdo->prepare('DELETE FROM maintenance WHERE id = :maintenanceId');
+            $deleteMaintenanceQuery->bindParam(':maintenanceId', $_POST['maintenance_id'], PDO::PARAM_INT);
+            $deleteMaintenanceQuery->execute();
+        }
+    } else {
+        $status = 'en cours';
+    }
+
+    // Mettre à jour le statut et la note dans la table de maintenance
+    $updateMaintenanceQuery = $website_pdo->prepare('UPDATE maintenance SET status = :status WHERE id = :maintenanceId');
+    $updateMaintenanceQuery->bindParam(':status', $status, PDO::PARAM_STR);
+    $updateMaintenanceQuery->bindParam(':maintenanceId', $_POST['maintenance_id'], PDO::PARAM_INT);
+    $updateMaintenanceQuery->execute();
+
+    // Insérer la note de maintenance
+    $insertNoteQuery = $website_pdo->prepare('INSERT INTO maintenance_note (maintenance_id, user_id, content) VALUES (:maintenanceId, :userId, :content)');
+    $insertNoteQuery->bindParam(':maintenanceId', $_POST['maintenance_id'], PDO::PARAM_INT);
+    $insertNoteQuery->bindParam(':userId', $_SESSION['id'], PDO::PARAM_INT);
+    $insertNoteQuery->bindParam(':content', $maintenanceNote, PDO::PARAM_STR);
+    $insertNoteQuery->execute();
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Checklist</title>
+    <title>Détails de l'entretien</title>
     <style>
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+        /* Ajouter CSS */
 
-        th, td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #f2f2f2;
-        }
     </style>
 </head>
 <body>
-    <h2><?php echo $title?></h2>
-    <table>
-        <tr>
-            <th>ID</th>
-            <th>Date de début</th>
-            <th>Logement</th>
-            <th>Image</th>
-            <th>Status</th>
-            <th>Titre</th>
-            <th>Entretien de surface</th>
-            <th>Vérifications techniques</th>
-            <th>Notes</th>
-            <th>Valider</th>
-            <th>Autres notes</th>
-        </tr>
+    <h2><?php echo $title ?></h2>
+    <form action="" method="POST">
         <?php foreach ($maintenance_result as $maintenance) { ?>
-            <tr>
-                <td><?php echo $maintenance['id']; ?></td>
-                <td><?php echo $maintenance['start_date_time']; ?></td>
-                <td><?php echo $maintenance['housing_title']; ?></td>
-                <td><img src="<?php echo $maintenance['image']; ?>" alt="Image du logement"></td>
-                <td><?php echo $maintenance['status']; ?></td>
-                <td><?php echo $maintenance['title']; ?></td>
-                <td>
-                    <form action="" method="post">
-                        <?php for ($i = 1; $i <= 6; $i++) { ?>
-                            <input type="checkbox" name="surface_maintenance[]" value="<?php echo $i; ?>"> <?php echo $i; ?>
-                        <?php } ?>
-                </td>
-                <td>
-                    <?php for ($i = 1; $i <= 2; $i++) { ?>
-                        <input type="checkbox" name="technical_check[]" value="<?php echo $i; ?>"> <?php echo $i; ?>
-                    <?php } ?>
-                </td>
-                <td><?php echo $maintenance['notes']; ?></td>
-                <td>
-                    <input type="text" name="maintenance_note">
-                    <button type="submit" name="submit">Valider</button>
-                </td>
-                <td>
-                    <button type="button" class="notes-button">Autres notes</button>
-                </td>
-                    </form>
-            </tr>
-        <?php } ?>
-    </table>
+            <h3>Booking ID: <?php echo $maintenance['id']; ?></h3>
+            <h4>Logement: <?php echo $maintenance['housing_title']; ?></h4>
+            <img src="<?php echo $maintenance['image']; ?>" alt="Image du logement">
 
-    <script>
-        var notesButtons = document.getElementsByClassName('notes-button');
-        for (var i = 0; i < notesButtons.length; i++) {
-            notesButtons[i].addEventListener('click', function() {
-                var notesRow = this.parentNode.parentNode.getElementsByClassName('notes')[0];
-                notesRow.classList.toggle('show');
-            });
-        }
-    </script>
+            <input type="hidden" name="maintenance_id" value="<?php echo $maintenance['id']; ?>">
+
+            <div class="maintenance-details-section">
+                <h4>Entretien de surface</h4>
+                <input type="checkbox" name="maintenance_check[]" value="Nettoyage"> Nettoyage<br>
+                <input type="checkbox" name="maintenance_check[]" value="Peinture"> Peinture<br>
+                <input type="checkbox" name="maintenance_check[]" value="Réparation"> Réparation<br>
+                <!-- Ajouter d'autres cases à cocher pour l'entretien de surface si nécessaire -->
+            </div>
+
+            <div class="maintenance-details-section">
+                <h4>Vérifications techniques</h4>
+                <input type="checkbox" name="maintenance_check[]" value="Plomberie"> Plomberie<br>
+                <input type="checkbox" name="maintenance_check[]" value="Électricité"> Électricité<br>
+                <!-- Ajouter d'autres cases à cocher pour les vérifications techniques si nécessaire -->
+            </div>
+
+            <div class="maintenance-details-section">
+                <h4>Autres notes</h4>
+                <textarea name="maintenance_note" rows="4" cols="50"></textarea>
+            </div>
+
+            <input type="submit" name="submit" value="Valider">
+        <?php } ?>
+    </form>
 </body>
 </html>
-
-<?php
-    // Traitement du formulaire
-    if (isset($_POST['submit'])) {
-        $surfaceMaintenance = $_POST['surface_maintenance'];
-        $technicalCheck = $_POST['technical_check'];
-        $maintenanceNote = $_POST['maintenance_note'];
-        
-
-        // Vérifier si toutes les cases d'entretien de surface sont cochées
-        $isSurfaceMaintenanceComplete = count($surfaceMaintenance) == 6;
-
-        // Modifier le statut de la maintenance en fonction des cases cochées
-        $maintenanceStatus = ($isSurfaceMaintenanceComplete && count($technicalCheck) > 0) ? 'fait' : 'en cours';
-
-        // Mettre à jour le statut de la maintenance dans la base de données
-        $updateMaintenanceStatus = $website_pdo->prepare('
-            UPDATE maintenance
-            SET status = :status
-            WHERE id = :maintenanceId
-        ');
-
-        foreach ($maintenance_result as $maintenance) {
-            $maintenanceId = $maintenance['id'];
-            $updateMaintenanceStatus->execute([
-                'status' => $maintenanceStatus,
-                'maintenanceId' => $maintenanceId
-            ]);
-        }
-
-        // Enregistrer la note de maintenance dans la table maintenance_note
-        $maintenanceNoteRequete = $website_pdo->prepare('
-            INSERT INTO maintenance_note (maintenance_id, user_id, content)
-            VALUES (:maintenanceId, :userId, :content)
-        ');
-
-        $userId = $_SESSION['id'];
-
-        foreach ($maintenance_result as $maintenance) {
-            $maintenanceId = $maintenance['id'];
-            $maintenanceNoteRequete->execute([
-                'maintenanceId' => $maintenanceId,
-                'userId' => $userId,
-                'content' => $maintenanceNote
-            ]);
-        }
-    }
-/*}
-else {
-    echo "Vous n'avez pas les droits pour continuer.";
-    exit;
-}*/
-?>
