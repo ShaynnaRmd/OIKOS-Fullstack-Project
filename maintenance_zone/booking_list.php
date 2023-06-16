@@ -24,7 +24,7 @@ if ($role_result && $role_result['maintenance_role'] == 1 or $role_result && $ro
     // Si le rôle maintenance_role est ok : */
 
     // Récupérer le mois actuel
-    $currentMonth = date('m-Y');
+    $currentMonth = date('Y-m');
 
     // Vérifier si un mois différent a été sélectionné
     if (isset($_GET['month'])) {
@@ -38,7 +38,7 @@ if ($role_result && $role_result['maintenance_role'] == 1 or $role_result && $ro
         SELECT housing.id AS housing_id, housing.title, booking.start_date_time, booking.end_date_time
         FROM housing
         LEFT JOIN booking ON housing.id = booking.housing_id
-        WHERE DATE_FORMAT(booking.start_date_time, '%Y-%m') >= :selectedMonth
+        WHERE DATE_FORMAT(booking.start_date_time, '%Y-%m') = :selectedMonth
         ORDER BY housing.id, booking.start_date_time
     ";
     $reservationStmt = $website_pdo->prepare($reservationQuery);
@@ -52,14 +52,14 @@ if ($role_result && $role_result['maintenance_role'] == 1 or $role_result && $ro
     // Organiser les dates de réservation par logement
     foreach ($reservations as $reservation) {
         $housingId = $reservation['housing_id'];
-        
+
         if (!isset($housingReservations[$housingId])) {
             $housingReservations[$housingId] = [
                 'title' => $reservation['title'],
                 'dates' => []
             ];
         }
-        
+
         $housingReservations[$housingId]['dates'][] = [
             'start_date' => $reservation['start_date_time'],
             'end_date' => $reservation['end_date_time']
@@ -68,9 +68,9 @@ if ($role_result && $role_result['maintenance_role'] == 1 or $role_result && $ro
 
     // Affichage du tableau des réservations par logement
     echo "<h2>Booking à venir</h2>";
-    echo $selectedMonth;
 
     // Affichage des flèches pour passer d'un mois à un autre
+    echo $selectedMonth;
     echo '<a href="?month=' . date('Y-m', strtotime($selectedMonth . ' -1 month')) . '">&lt; Mois précédent</a> | ';
     echo '<a href="?month=' . date('Y-m', strtotime($selectedMonth . ' +1 month')) . '">Mois suivant &gt;</a>';
 
@@ -87,33 +87,34 @@ if ($role_result && $role_result['maintenance_role'] == 1 or $role_result && $ro
             echo "<td>" . $housingId . "</td>";
             echo "<td>" . htmlspecialchars($housingReservation['title']) . "</td>";
             echo "<td>";
-            
+
             foreach ($housingReservation['dates'] as $reservationDate) {
-                $startDate = date('j M', strtotime($reservationDate['start_date']));
-                $endDate = date('j M', strtotime($reservationDate['end_date']));
+                $startDate = date_format(date_create($reservationDate['start_date']), 'd/m/Y');
+                $endDate = date_format(date_create($reservationDate['end_date']), 'd/m/Y');
                 echo "Début du séjour : " . $startDate . " - " . "Fin du séjour: " . $endDate . "<br>";
             }
-            
+
             echo "</td>";
             echo "</tr>";
         }
 
         echo "</table>";
     } else {
-        echo "Pas encore de réservation pour ce mois-ci.";
+        echo "Pas de réservation pour ce mois.";
     }
-/*// L'utilisateur n'a pas le role neccessaire -> le rediriger vers l'acceuil ou qqch comme ça :
+
+/*// L'utilisateur n'a pas le rôle nécessaire -> le rediriger vers l'accueil ou quelque chose comme ça :
 }else {
     echo "Vous n'avez pas les droits pour continuer.";
     exit;
-    }*/
+}*/
 ?>
 
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Vision des dates de réservation par logement du mois</title>
+    <title>Booking</title>
     <style>
         table {
             width: 100%;
