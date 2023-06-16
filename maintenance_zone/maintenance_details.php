@@ -43,7 +43,7 @@ if ($role_result && $role_result['maintenance_role'] == 1) {
         array_push($housing_id, $maintenance_result[$i]['housing_id']);
     }
 
-    $title = "Tâches à venir pour le mois en cours: ";
+    $title = "Checklist: ";
 /*} else {
     echo "Vous n'avez pas les droits pour continuer.";
     exit;
