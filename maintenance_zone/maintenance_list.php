@@ -91,7 +91,7 @@ if ($role_result && $role_result['maintenance_role'] == 1) {
                 <td><?php echo $maintenance['housing_title']; ?></td>
                 <td><img src="<?php echo $maintenance['image']; ?>" alt="Image du logement"></td>
                 <td><?php echo $maintenance['status']; ?></td>
-                <div class="link"><td><a href="../maintenance_zone/maintenance_details.php"><?php echo $maintenance['title']; ?><a/></td>
+                <div class="link"><td><a href="../maintenance_zone/maintenance_details.php?id=<?php echo $maintenance['id']; ?>"><?php echo $maintenance['title']; ?><a/></td>
             </tr>
         <?php } ?>
     </table>
