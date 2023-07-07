@@ -6,3 +6,4 @@ An independent and high-end platform which consists in the location of luxurious
         Shaynna Raymond
         Djédjé Gboble
         Imène Toudeft
+        Clément Asensio
